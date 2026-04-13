@@ -1,0 +1,10 @@
+[requires]
+sfml/3.0.2
+
+[options]
+sfml/*:shared=False
+*:shared=False
+
+[generators]
+CMakeDeps
+CMakeToolchain
