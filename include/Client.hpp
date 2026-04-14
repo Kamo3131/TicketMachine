@@ -1,7 +1,10 @@
+#pragma once
 #include <map>
 #include <utility>
 #include <string>
-
+#include <set>
+#include <vector>
+#include "Ticket.hpp"
 
 class Client {
     private:
@@ -15,6 +18,7 @@ class Client {
         {500, 0}, {1000, 0}, {2000, 0}, 
         {5000, 0}, {10000, 0}, {20000, 0}};
         std::pair<std::string, std::string> m_full_name = {"", ""};
+        std::set<std::pair<std::string, int>> getTicketsTypes(std::vector<Ticket> tickets) const;
     public:
         void printMoney() const;
         int getNumberOfCoins(const double value) const;

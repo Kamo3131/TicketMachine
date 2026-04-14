@@ -1,5 +1,4 @@
 #include "Client.hpp"
-#include <vector>
 #include <cmath>
 #include <algorithm>
 #include <iostream>
@@ -59,7 +58,7 @@ void Client::givingChange(const double change_val) {
     if (dp[change_int] > change_int) {
         std::cout << "Cannot give precise change!" << std::endl;
     } else {
-        std::cout << "Min number of money: " << dp[change_int] << std::endl;
+        // std::cout << "Min number of money: " << dp[change_int] << std::endl;
         std::cout << "Coins used:\n";
         int current_remaining = change_int;
         while(current_remaining > 0) {
@@ -78,36 +77,85 @@ void Client::printMoney() const {
         std::cout << static_cast<double>(nominal/100.0) << ": " << count << std::endl; 
     }
 }
-
+std::set<std::pair<std::string, int>> Client::getTicketsTypes(std::vector<Ticket> tickets) const {
+    std::set<std::pair<std::string, int>> unique_types;
+    for (const auto& ticket : tickets) {
+        unique_types.insert(std::make_pair(ticket.type, ticket.price));
+    }
+    return unique_types;
+}
 void Client::clientLoop() {
-    sf::TcpSocket *socket = new sf::TcpSocket;
-    if(socket->connect(sf::IpAddress::resolve("127.0.0.1").value(), 53000) != sf::Socket::Status::Done) {
+    sf::TcpSocket socket;
+    if(socket.connect(sf::IpAddress::resolve("127.0.0.1").value(), 53000) != sf::Socket::Status::Done) {
         std::cerr << "Could not connect to server!\n";
         return;
     }
-    bool active = true;
     
+    sf::Packet initialPacket;
+    if(socket.receive(initialPacket) == sf::Socket::Status::Done) {
+        std::string cmd;
+        initialPacket >> cmd;
+        if (cmd == "LIST") {
+            std::uint32_t size;
+            initialPacket >> size;
+            std::vector<Ticket> available_tickets;
+            for(std::uint32_t i = 0; i < size; ++i) {
+                Ticket t;
+                initialPacket >> t;
+                available_tickets.push_back(t);
+            }
+            auto ticket_types = getTicketsTypes(available_tickets);
+            for(const auto& [name, price] : ticket_types) {
+                std::cout << name << ": " << (price / 100.0) << " PLN" << std::endl;
+            }
+        }
+    }
+    bool active = true;
     while(active) {
         std::string type;
-        std::cout << "Enter ticket type or exit: ";
+        std::cout << "\nEnter ticket type to reserve (or 'exit' to exit): ";
         std::cin >> type;
-        if(type == "exit" || type == "EXIT") break;
+        if(type == "exit") break;
 
         sf::Packet packet;
         packet << "RESERVE" << type;
-        if(socket->send(packet) == sf::Socket::Status::Done) {
+        if(socket.send(packet) == sf::Socket::Status::Done) {
             sf::Packet receivePacket;
-            if (socket->receive(receivePacket) == sf::Socket::Status::Done) {
+            if (socket.receive(receivePacket) == sf::Socket::Status::Done) {
                 std::string status;
-                int ticketId;
-                double price;
-
                 receivePacket >> status;
-                if( status == "SUCCESS") {
+                if(status == "SUCCESS") {
+                    int ticketId, price;
                     receivePacket >> ticketId >> price;
-                    std::cout << "Reserved ticket ID: " << ticketId << "; ticket price: " << price << std::endl;
+                    std::cout << "Reserved ID: " << ticketId << " Price: " << (price/100.0) << std::endl;
+                    while(true){
+                        std::cout << "Pay the price (or 'cancel'): ";
+                        std::string answer;
+                        std::cin >> answer;
+                        if(answer == "CANCEL" || answer == "C" || 
+                            answer == "cancel" || answer == "Cancel"){
+                            break;
+                        }
+                        double payedPrice = std::stod(answer);
+                        int payedPriceInt = static_cast<int>(payedPrice*100);
+                        int change = payedPriceInt - price;
+                        if(change > 0) {
+                            std::cout << "Change: " << change << std::endl;
+                            givingChange(change);
+                            break;
+                        } 
+                        else if(change == 0) {
+                            std::cout << "No change to be given!\n";
+                            break;
+                        } 
+                        else {
+                            std::cout << payedPrice << " is not enough to pay. ";
+                            continue;
+                        }
+                    }
+
                 } else {
-                    std::cout << "Reservation failed. Ticket not available.\n";
+                    std::cout << "Reservation failed.\n";
                 }
             }
         }

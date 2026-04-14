@@ -1,3 +1,4 @@
+#pragma once
 #include <map>
 #include <string>
 #include <ctime>
@@ -5,21 +6,18 @@
 #include <thread>
 #include <mutex>
 #include <SFML/Network.hpp>
+#include "Ticket.hpp"
 
-struct Ticket {
-    std::string type;
-    int price;
-    bool reservation;
-    std::time_t timestamp;
-};
 
 class Server {
     private:
         std::map<int, Ticket> m_tickets;
-        std::mutex ticket_mutex;
+        // std::map<int, Ticket> m_reserved_tickets;
+        mutable std::mutex ticket_mutex;
     public:
+        void addTicket(int ticketId, Ticket ticket);
         bool reserveTicket(int ticketId);
-        int findFreeTicket(std::string type);
+        int findFreeTicket(std::string type) const;
         Ticket getTicketDetails(int ticketId);
         std::vector<Ticket> getAvailableTickets();
         void run();

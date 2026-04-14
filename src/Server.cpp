@@ -1,6 +1,10 @@
 #include "Server.hpp"
 #include <iostream>
 
+void Server::addTicket(int ticketId, Ticket ticket) {
+    m_tickets[ticketId] = ticket;
+}
+
 bool Server::reserveTicket(int ticketId) {
     std::lock_guard<std::mutex> lock(ticket_mutex);
     if(m_tickets.count(ticketId) && !m_tickets[ticketId].reservation) {
@@ -28,7 +32,7 @@ std::vector<Ticket> Server::getAvailableTickets() {
     }
     return available;
 }
-int Server::findFreeTicket(std::string type) {
+int Server::findFreeTicket(std::string type) const {
     std::lock_guard<std::mutex> lock(ticket_mutex);
     for(const auto& [id, ticket] : m_tickets) {
         if(!ticket.reservation && ticket.type == type) {
@@ -39,8 +43,9 @@ int Server::findFreeTicket(std::string type) {
 }
 void Server::run() {
     sf::TcpListener listener;
-    std::cout << "Server run\n";
+
     if(listener.listen(53000) == sf::Socket::Status::Done) {
+        std::cout << "Server is running!\n";
         while (true) {
             sf::TcpSocket* client = new sf::TcpSocket;
             if (listener.accept(*client) == sf::Socket::Status::Done) {
@@ -53,30 +58,41 @@ void Server::run() {
         }
     }
 }
+
 void Server::handleClient(sf::TcpSocket* socket, Server& server) {
-    sf::Packet packet;
+    
+    sf::Packet initialPacket;
+    std::vector<Ticket> available = getAvailableTickets();
+    initialPacket << "LIST";
+    initialPacket << static_cast<std::uint32_t>(available.size());
+    for (const auto & ticket : available) {
+        initialPacket << ticket;
+    }
+    if(socket->send(initialPacket) == sf::Socket::Status::Done) {
+        sf::Packet packet;
+        while(socket->receive(packet) == sf::Socket::Status::Done) {
+            std::string command;
+            packet >> command;
+            if (command == "RESERVE") {
+                std::string ticketType;
+                packet >> ticketType;
+                std::cout << ticketType << std::endl;
+                int id = findFreeTicket(ticketType);
+                sf::Packet response;
+                if(-1 != id) {
+                    bool success = server.reserveTicket(id);
 
-    while(socket->receive(packet) == sf::Socket::Status::Done) {
-        std::string command;
-        packet >> command;
-        if (command == "RESERVE") {
-            std::string ticketType;
-            packet >> ticketType;
-            std::cout << ticketType << std::endl;
-            int id = findFreeTicket(ticketType);
-            sf::Packet response;
-            if(-1 != id) {
-                bool success = server.reserveTicket(id);
-
-                if(success) {
-                    response << "SUCCESS" << id << m_tickets[id].price;
+                    if(success) {
+                        std::cout << m_tickets[id].price << std::endl;
+                        response << "SUCCESS" << id << m_tickets[id].price;
+                    } else {
+                        response << "FAIL";
+                    }
+                    if(socket->send(response) == sf::Socket::Status::Done){};
                 } else {
                     response << "FAIL";
+                    if(socket->send(response) == sf::Socket::Status::Done){};
                 }
-                if(socket->send(response) == sf::Socket::Status::Done){};
-            } else {
-                response << "FAIL";
-                if(socket->send(response) == sf::Socket::Status::Done){};
             }
         }
     }
