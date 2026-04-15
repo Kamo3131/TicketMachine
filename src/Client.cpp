@@ -22,14 +22,7 @@ void Client::decrementNumberOfCoins(const double value) {
         setNumberOfCoins(value, number_of_coins - 1);
     }
 }
-void Client::setFullName(const std::string first_name, const std::string last_name) {
-    m_full_name.first = first_name;
-    m_full_name.second = last_name;
-}
-std::pair<std::string, std::string> Client::getFullName() const {
-    return m_full_name;
-}
-void Client::givingChange(const double change_val) {
+bool Client::givingChange(const double change_val) {
     int change_int = std::round(change_val * 100);
     std::vector<int> available_coins;
     for (const auto& [nominal, count] : m_money) {
@@ -56,7 +49,7 @@ void Client::givingChange(const double change_val) {
     }
 
     if (dp[change_int] > change_int) {
-        std::cout << "Cannot give precise change!" << std::endl;
+        return false;
     } else {
         // std::cout << "Min number of money: " << dp[change_int] << std::endl;
         std::cout << "Coins used:\n";
@@ -69,6 +62,7 @@ void Client::givingChange(const double change_val) {
             current_remaining -= coin_val;
         }
         std::cout << std::endl;
+        return true;
     }
 }
 
@@ -116,9 +110,16 @@ void Client::clientLoop() {
         std::cout << "\nEnter ticket type to reserve (or 'exit' to exit): ";
         std::cin >> type;
         if(type == "exit") break;
-
+        std::string clientName;
+        std::cin.ignore();
+        std::cout << "Type your name:\n"; 
+        std::getline(std::cin, clientName);
+        if(clientName.empty()) {
+            std::cout << "Wrong name. Type correct credentials!\n";
+            continue;
+        }
         sf::Packet packet;
-        packet << "RESERVE" << type;
+        packet << "RESERVE" << type << clientName;
         if(socket.send(packet) == sf::Socket::Status::Done) {
             sf::Packet receivePacket;
             if (socket.receive(receivePacket) == sf::Socket::Status::Done) {
@@ -134,26 +135,44 @@ void Client::clientLoop() {
                         std::cin >> answer;
                         if(answer == "CANCEL" || answer == "C" || 
                             answer == "cancel" || answer == "Cancel"){
+                            sf::Packet cancelPacket;
+                            cancelPacket << "CANCEL" << ticketId;
+                            if(socket.send(cancelPacket) == sf::Socket::Status::Done) {
+                                std::cout << "Transaction cancelled" << std::endl;
+                            }
+                            std::cout << "Transaction cancelled" << std::endl;
                             break;
                         }
-                        double payedPrice = std::stod(answer);
-                        int payedPriceInt = static_cast<int>(payedPrice*100);
-                        int change = payedPriceInt - price;
-                        if(change > 0) {
-                            std::cout << "Change: " << change << std::endl;
-                            givingChange(change);
-                            break;
-                        } 
-                        else if(change == 0) {
-                            std::cout << "No change to be given!\n";
-                            break;
-                        } 
-                        else {
-                            std::cout << payedPrice << " is not enough to pay. ";
-                            continue;
+                        try {
+                            double payedPrice = std::stod(answer);
+                            int payedPriceInt = static_cast<int>(payedPrice*100);
+                            int change = payedPriceInt - price;
+                            if(change >= 0) {
+                                std::cout << "Change: " << static_cast<double>(change)/100.0 << std::endl;
+                                if(change == 0 || givingChange(static_cast<double>(change)/100.0)) {
+                                    sf::Packet confirmationPacket;
+                                    confirmationPacket << "CONFIRM" << ticketId;
+                                    if(socket.send(confirmationPacket) == sf::Socket::Status::Done) {
+                                        std::cout << "Transaction successful!\nTicket " 
+                                        << type << ": " << ticketId << std::endl;
+                                    } 
+                                } else {
+                                    sf::Packet cancelPacket;
+                                    cancelPacket << "CANCEL" << ticketId /*<< m_full_name.first << m_full_name.second*/;
+                                    if(socket.send(cancelPacket) == sf::Socket::Status::Done) {
+                                        std::cout << "Transaction aborted: no possibility of giving change.\n";
+                                    }
+                                }
+                                break;
+                            } 
+                            else {
+                                std::cout << payedPrice << " is not enough to pay. ";
+                                continue;
+                            }
+                        } catch (...) {
+                        std::cout << "Invalid input. Enter a number or cancel.\n";
                         }
-                    }
-
+                    } 
                 } else {
                     std::cout << "Reservation failed.\n";
                 }

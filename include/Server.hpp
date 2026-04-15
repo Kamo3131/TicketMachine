@@ -12,12 +12,18 @@
 class Server {
     private:
         std::map<int, Ticket> m_tickets;
-        // std::map<int, Ticket> m_reserved_tickets;
+        std::map<int, Ticket> m_sold_tickets;
         mutable std::mutex ticket_mutex;
+
+        void consoleInterface();
+
     public:
         void addTicket(int ticketId, Ticket ticket);
-        bool reserveTicket(int ticketId);
+        bool reserveTicket(int ticketId, std::string clientName);
         int findFreeTicket(std::string type) const;
+        void finalizeSale(int ticketId);
+        void cancelReservation(int ticketId);
+        void checkTimeouts();
         Ticket getTicketDetails(int ticketId);
         std::vector<Ticket> getAvailableTickets();
         void run();

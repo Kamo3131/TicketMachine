@@ -7,7 +7,7 @@ void fillWithCoins(Client& client) {
     };
     for (int den : denominations) {
         double val_in_pln = den / 100.0;
-        client.setNumberOfCoins(val_in_pln, 3);
+        client.setNumberOfCoins(val_in_pln, 1);
     }
 }
 int main() {
