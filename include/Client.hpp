@@ -18,12 +18,15 @@ class Client {
         {500, 0}, {1000, 0}, {2000, 0}, 
         {5000, 0}, {10000, 0}, {20000, 0}};
         std::set<std::pair<std::string, int>> getTicketsTypes(std::vector<Ticket> tickets) const;
+        void showAvailableTickets(sf::TcpSocket& socket);
+        void buyTicket(sf::TcpSocket& socket);
     public:
         void printMoney() const;
         int getNumberOfCoins(const double value) const;
         void setNumberOfCoins(const double value, const int number);
         void incrementNumberOfCoins(const double value);
         void decrementNumberOfCoins(const double value);
+        
         [[nodiscard]] bool givingChange(const double change);
         void clientLoop();
 };
