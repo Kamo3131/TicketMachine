@@ -7,7 +7,7 @@ int main() {
     Ticket ulgowy = {"Ulgowy", 320, false};
     Ticket zwyczajny = {"Zwyczajny", 450, false};
     Ticket studencki = {"Studencki", 225, false};
-        for(int i = 0; i < 3; i+=3) {
+        for(int i = 0; i < 30; i+=3) {
             server.addTicket(i, ulgowy);
             server.addTicket(i+1, zwyczajny); 
             server.addTicket(i+2, studencki);     

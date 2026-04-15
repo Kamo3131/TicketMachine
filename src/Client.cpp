@@ -12,11 +12,27 @@ void Client::setNumberOfCoins(const double value, const int number) {
     int temp = static_cast<int>(value * 100);
     m_money.at(temp) = number;
 }
+int Client::getNumberOfCoins(const int value) const {
+    return m_money.at(value);
+}
+void Client::setNumberOfCoins(const int value, const int number) {
+    m_money.at(value) = number;
+}
 void Client::incrementNumberOfCoins(const double value) {
     int number_of_coins = getNumberOfCoins(value);
     setNumberOfCoins(value, number_of_coins + 1);
 }
 void Client::decrementNumberOfCoins(const double value) {
+    int number_of_coins = getNumberOfCoins(value);
+    if(number_of_coins > 0) {
+        setNumberOfCoins(value, number_of_coins - 1);
+    }
+}
+void Client::incrementNumberOfCoins(const int value) {
+    int number_of_coins = getNumberOfCoins(value);
+    setNumberOfCoins(value, number_of_coins + 1);
+}
+void Client::decrementNumberOfCoins(const int value) {
     int number_of_coins = getNumberOfCoins(value);
     if(number_of_coins > 0) {
         setNumberOfCoins(value, number_of_coins - 1);
@@ -48,6 +64,7 @@ bool Client::givingChange(const double change_val) {
         }
     }
 
+    m_change.clear();
     if (dp[change_int] > change_int) {
         return false;
     } else {
@@ -56,6 +73,7 @@ bool Client::givingChange(const double change_val) {
         int current_remaining = change_int;
         while(current_remaining > 0) {
             int coin_val = available_coins[parent[current_remaining]];
+            m_change.push_back(coin_val);
             double coin_val_double = static_cast<double>(coin_val / 100.0);
             std::cout << coin_val_double << " ";
             decrementNumberOfCoins(coin_val_double);
@@ -66,6 +84,12 @@ bool Client::givingChange(const double change_val) {
     }
 }
 
+void Client::returnChangeToMachine() {
+    for(const int coin : m_change) {
+        incrementNumberOfCoins(coin);
+    }
+    m_change.clear();
+}
 void Client::printMoney() const {
     for (const auto& [nominal, count] : m_money) {
         std::cout << static_cast<double>(nominal/100.0) << ": " << count << std::endl; 
@@ -153,8 +177,20 @@ void Client::buyTicket(sf::TcpSocket& socket) {
                                 sf::Packet confirmationPacket;
                                 confirmationPacket << "CONFIRM" << ticketId;
                                 if(socket.send(confirmationPacket) == sf::Socket::Status::Done) {
-                                    std::cout << "Transaction successful!\nTicket " 
-                                    << type << ": " << ticketId << std::endl;
+                                    sf::Packet timeoutPacket;
+                                    if(socket.receive(timeoutPacket) == sf::Socket::Status::Done) {
+                                        std::string timeoutResponse;
+                                        timeoutPacket >> timeoutResponse;
+                                        if("OK" == timeoutResponse) {
+                                            std::cout << "Transaction successful!\nTicket " 
+                                            << type << ": " << ticketId << std::endl;
+                                        } else if ("TIMEOUT" == timeoutResponse) {
+                                            std::cout << "Reservation timed out!" << std::endl;
+                                            returnChangeToMachine();
+                                            return;
+                                        }
+                                    }
+
                                 } 
                             } else {
                                 sf::Packet cancelPacket;
@@ -192,7 +228,9 @@ void Client::clientLoop() {
         std::cout << std::endl << "Type:\n" <<
         "1) 'BUY' - to buy ticket!\n" <<
         "2) 'TICKETS' - to show available tickets!\n" <<
+        "4) 'SHOW_COINS' - only for dev.\n" <<
         "3) 'EXIT' - to exit machine.\nYour command: ";
+
         std::string command;
         std::cin >> command;
         if("BUY" == command || "1" == command) {
@@ -201,6 +239,8 @@ void Client::clientLoop() {
             showAvailableTickets(socket);
         } else if("EXIT" == command || "3" == command) {
             break;
+        } else if("SHOW_COINS" == command || "4" == command) {
+            printMoney();
         }
     }
 }

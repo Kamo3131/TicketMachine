@@ -11,7 +11,7 @@ bool Server::reserveTicket(int ticketId, std::string clientName) {
         m_tickets[ticketId].reservation = true;
         m_tickets[ticketId].clientName = clientName;
         m_tickets[ticketId].reservationEndTime = std::chrono::steady_clock::now() 
-        + std::chrono::seconds(60);
+        + std::chrono::seconds(10);
         return true;
     }
     return false;
@@ -57,7 +57,6 @@ int Server::findFreeTicket(std::string type) const {
     return -1;
 }
 void Server::finalizeSale(int ticketId) {
-    std::lock_guard<std::mutex> lock(ticket_mutex);
     m_tickets[ticketId].reservation = false;
     m_sold_tickets[ticketId] = m_tickets[ticketId];
     m_tickets.erase(ticketId); 
@@ -141,19 +140,31 @@ void Server::handleClient(sf::TcpSocket* socket, Server& server) {
             std::cout << "Client confirmed payment for ticket: " << ticketId << std::endl;
 
             auto now = std::chrono::steady_clock::now();
-            if(m_tickets.count(ticketId) && m_tickets[ticketId].reservation) {
-                if (now <= m_tickets[ticketId].reservationEndTime) {
-                    server.finalizeSale(ticketId);
+            sf::Packet response;
+            {
+                std::lock_guard<std::mutex> lock(ticket_mutex);
+                
+                if(m_tickets.count(ticketId) && m_tickets[ticketId].reservation) {
+                    if (now <= m_tickets[ticketId].reservationEndTime) {
+                        server.finalizeSale(ticketId);
+                        std::cout << "Tickets sold:\n";
+                
+                        for(const auto& [id, ticket] : m_sold_tickets) {
+                            std::cout << id << std::endl;
+                        }
+                        response << "OK";
+                    } else {
+                        m_tickets[ticketId].reservation = false;
+                        response << "TIMEOUT";
+                    }
                 } else {
-                    m_tickets[ticketId].reservation = false;
+                    std::cout << "Not found\n";
                 }
             }
-            std::cout << "Tickets sold:\n";
-            
-            std::lock_guard<std::mutex> lock(ticket_mutex);
-            for(const auto& [id, ticket] : m_sold_tickets) {
-                std::cout << id << std::endl;
+            if(socket->send(response) != sf::Socket::Status::Done){
+                std::cout << "Could not send response to client\n";
             }
+
         } else if (command == "CANCEL") {
             int ticketId;
             packet >> ticketId;
