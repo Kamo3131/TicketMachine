@@ -1,51 +1,61 @@
-cmake_minimum_required(VERSION 3.24)
-project(tickets C CXX)
+cmake_minimum_required(VERSION 4.0.0)
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+project(tickets LANGUAGES C CXX)
+if(WIN32)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
+    add_compile_definitions(SFML_STATIC)
+endif()
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 set(INCLUDE_DIR "${PROJECT_SOURCE_DIR}/include")
 set(SOURCE_DIR "${PROJECT_SOURCE_DIR}/src")
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
-endif()
 
-set(CONAN_PROVIDER_URL "https://raw.githubusercontent.com/conan-io/cmake-conan/develop2/conan_provider.cmake")
-set(CONAN_PROVIDER_PATH "${CMAKE_BINARY_DIR}/conan_provider.cmake")
+include(FetchContent)
 
-if(NOT EXISTS "${CONAN_PROVIDER_PATH}")
-    message(STATUS "Downloading Conan provider from ${CONAN_PROVIDER_URL}...")
-    file(DOWNLOAD "${CONAN_PROVIDER_URL}" "${CONAN_PROVIDER_PATH}")
-endif()
+set(SFML_STATIC_LIBRARIES ON)
+set(BUILD_SHARED_LIBS OFF)
+set(SFML_BUILD_EXAMPLES OFF)
+set(SFML_BUILD_TESTS OFF)
+set(SFML_BUILD_DOC OFF)
+set(SFML_BUILD_GRAPHICS OFF CACHE INTERNAL "")
+set(SFML_BUILD_WINDOW OFF CACHE INTERNAL "")
+set(SFML_BUILD_AUDIO OFF CACHE INTERNAL "")
+set(SFML_VERSION 3.0.2)
 
-message(STATUS "Triggering Conan installation...")
-execute_process(
-    COMMAND conan install ${CMAKE_SOURCE_DIR} --output-folder=${CMAKE_BINARY_DIR} --build=missing -s build_type=${CMAKE_BUILD_TYPE} -pr:b=default -pr:h=default
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    RESULT_VARIABLE CONAN_RET
+FetchContent_Declare(
+    SFML
+    URL "https://github.com/SFML/SFML/archive/${SFML_VERSION}.zip"
 )
 
-if(NOT CONAN_RET EQUAL 0)
-    message(FATAL_ERROR "Conan failed to install dependencies.")
-endif()
+FetchContent_MakeAvailable(SFML)
 
-if(EXISTS "${CMAKE_BINARY_DIR}/conan_toolchain.cmake")
-    include("${CMAKE_BINARY_DIR}/conan_toolchain.cmake")
-endif()
-
-set(SFML_DIR "${CMAKE_BINARY_DIR}")
-list(PREPEND CMAKE_PREFIX_PATH "${CMAKE_BINARY_DIR}")
-
-find_package(SFML 3 REQUIRED COMPONENTS Network)
-file(GLOB_RECURSE SOURCES "${SOURCE_DIR}/*.cpp")
 add_executable(ticket_server ${SOURCE_DIR}/server_main.cpp 
 ${SOURCE_DIR}/Server.cpp)
-target_include_directories(ticket_server PRIVATE ${INCLUDE_DIR})
-target_compile_definitions(ticket_server PRIVATE SFML_STATIC)
-target_link_libraries(ticket_server PRIVATE SFML::Network)
+target_include_directories(ticket_server PRIVATE ${INCLUDE_DIR} ${sfml_SOURCE_DIR}/include)
+target_link_libraries(ticket_server PRIVATE sfml-network)
+
 add_executable(ticket_client ${SOURCE_DIR}/client_main.cpp 
 ${SOURCE_DIR}/Client.cpp)
-target_include_directories(ticket_client PRIVATE ${INCLUDE_DIR})
-target_compile_definitions(ticket_client PRIVATE SFML_STATIC)
-target_link_libraries(ticket_client PRIVATE SFML::Network)
+target_include_directories(ticket_client PRIVATE ${INCLUDE_DIR} ${sfml_SOURCE_DIR}/include)
+target_link_libraries(ticket_client PRIVATE sfml-network)
 
+set(ALL_TARGETS ticket_server ticket_client)
+foreach(TGT IN LISTS ALL_TARGETS)
+    if(WIN32)
+        target_link_libraries(${TGT} PRIVATE winmm ws2_32) 
+    endif()
 
+    if(MSVC)
+        target_compile_options(${TGT} PRIVATE /W4)
+    else()
+        target_compile_options(${TGT} PRIVATE -Wall -Wextra -pedantic)
+    endif()
+endforeach()
+
+enable_testing()
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt")
+    add_subdirectory(tests)
+endif()
