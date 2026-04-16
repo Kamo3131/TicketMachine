@@ -9,5 +9,5 @@
     libxrandr-dev, 
     libudev-dev,
 ## Running
-`cmake -B build -DCMAKE_BUILD_TYPE=Release` or `cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release` (if ninja present)
-`cmake --build build`
+- `cmake -B build -DCMAKE_BUILD_TYPE=Release` or `cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release` (if ninja present)
+- `cmake --build build`
