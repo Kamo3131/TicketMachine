@@ -52,7 +52,7 @@ bool Client::givingChange(const double change_val) {
     dp[0] = 0;
     
 
-    for (int i = 0; i < available_coins.size(); ++i) {
+    for (std::size_t i = 0; i < available_coins.size(); ++i) {
         int coin = available_coins[i];
         for (int j = change_int; j >= coin; --j) {
             if (dp[j - coin] != 2147483640) {

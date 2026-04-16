@@ -1,13 +1,28 @@
-﻿# TicketMachine
-## Prerequisite (especially for linux)
-- Have a conan installed on your PC.
-- Have a default conan profile. If not present, use:
-`conan profile detect`
-- Have libs installed:
-    libgl1-mesa-dev, 
-    libx11-dev, 
-    libxrandr-dev, 
-    libudev-dev,
-## Running
-- `cmake -B build -DCMAKE_BUILD_TYPE=Release` or `cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release` (if ninja present)
-- `cmake --build build`
+# TicketMachine
+
+## Prerequisites
+- C++20
+- CMake 4.0.0+
+
+## How to use?
+`cmake -B build` or `cmake -B build -G "Ninja"` (if ninja present)
+
+`cmake --build build`
+
+Linux
+
+`./build/ticket_server` in one terminal
+
+`./build/ticket_client` in another terminal
+
+Windows (Ninja)
+
+`.\build\ticket_server.exe` in one terminal
+
+`.\build\ticket_client.exe` in another terminal
+
+Windows
+
+`.\build\Debug\ticket_server.exe` in one terminal
+
+`.\build\Debug\ticket_client.exe` in another terminal
